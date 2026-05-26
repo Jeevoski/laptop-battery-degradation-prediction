@@ -1,11 +1,27 @@
-"""
-Laptop Battery Degradation Prediction
-This module handles data preparation, feature engineering, and modeling for predicting battery State of Health (SoH) and Remaining Useful Life (RUL).
-"""
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-def main():
-    print("Laptop Battery Degradation Prediction System")
-    print("Use this module to run data pipelines, training, or inference.")
+# 1. Generating Mock Data (Simulating 500 charge cycles of a laptop)
+np.random.seed(42)
+cycles = np.arange(1, 501)
+# Temperature generally increases slightly as battery ages
+temperature = np.random.normal(35, 5, 500) + (cycles * 0.02) 
+# Voltage drops slightly as it ages
+voltage = np.random.normal(11.5, 0.5, 500) - (cycles * 0.001)
+# State of Health (Target) degrades from 100% down to ~60% non-linearly
+soh = 100 - (cycles ** 1.2) * 0.02 + np.random.normal(0, 1, 500)
 
-if __name__ == "__main__":
-    main()
+df = pd.DataFrame({
+    'Cycle_Count': cycles,
+    'Temperature_C': temperature,
+    'Voltage_V': voltage,
+    'State_of_Health': soh
+})
+
+# Introduce some fake missing values to simulate sensor failure
+df.loc[10:15, 'Temperature_C'] = np.nan
+print("Initial Data Head:\n", df.head())
