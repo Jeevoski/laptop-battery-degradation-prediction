@@ -25,3 +25,13 @@ df = pd.DataFrame({
 # Introduce some fake missing values to simulate sensor failure
 df.loc[10:15, 'Temperature_C'] = np.nan
 print("Initial Data Head:\n", df.head())
+# 2. Preprocessing: Handle Missing Values using Forward Fill
+df['Temperature_C'] = df['Temperature_C'].ffill()
+
+# 3. Feature Engineering: Create a rolling average for temperature
+# (Simulating prolonged heat exposure which degrades batteries faster)
+df['Temp_Rolling_Avg_5'] = df['Temperature_C'].rolling(window=5, min_periods=1).mean()
+
+# Define our Features (X) and Target (y)
+X = df[['Cycle_Count', 'Temperature_C', 'Voltage_V', 'Temp_Rolling_Avg_5']]
+y = df['State_of_Health']
