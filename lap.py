@@ -1,68 +1,96 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-# 1. Generating Mock Data (Simulating 500 charge cycles of a laptop)
+# ==========================================
+# 1. GENERATE MOCK DATA
+# ==========================================
 np.random.seed(42)
 cycles = np.arange(1, 501)
-# Temperature generally increases slightly as battery ages
-temperature = np.random.normal(35, 5, 500) + (cycles * 0.02) 
-# Voltage drops slightly as it ages
-voltage = np.random.normal(11.5, 0.5, 500) - (cycles * 0.001)
-# State of Health (Target) degrades from 100% down to ~60% non-linearly
-soh = 100 - (cycles ** 1.2) * 0.02 + np.random.normal(0, 1, 500)
+# Battery health dropping from ~100 to ~70 over 500 cycles
+soh = 100 - (cycles * 0.06) + np.random.normal(0, 2, 500) 
 
-df = pd.DataFrame({
-    'Cycle_Count': cycles,
-    'Temperature_C': temperature,
-    'Voltage_V': voltage,
-    'State_of_Health': soh
-})
+# Convert to NumPy arrays and reshape for math operations
+X = cycles.reshape(-1, 1) 
+y = soh.reshape(-1, 1)
 
-# Introduce some fake missing values to simulate sensor failure
-df.loc[10:15, 'Temperature_C'] = np.nan
-print("Initial Data Head:\n", df.head())
-
-# 2. Preprocessing: Handle Missing Values using Forward Fill
-df['Temperature_C'] = df['Temperature_C'].ffill()
-
-# 3. Feature Engineering: Create a rolling average for temperature
-# (Simulating prolonged heat exposure which degrades batteries faster)
-df['Temp_Rolling_Avg_5'] = df['Temperature_C'].rolling(window=5, min_periods=1).mean()
-
-# Define our Features (X) and Target (y)
-X = df[['Cycle_Count', 'Temperature_C', 'Voltage_V', 'Temp_Rolling_Avg_5']]
-y = df['State_of_Health']
-
-# Split data: 80% for training the model, 20% for testing its accuracy
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
-
-# Initialize the Scaler
+# Feature Scaling: CRITICAL for Gradient Descent. 
+# Without scaling cycles (1-500), the gradients explode and the model fails.
 scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-# Fit on training data AND transform it. 
-# (We only 'transform' test data to prevent data leakage from the future)
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# ==========================================
+# 2. HYPERPARAMETERS (The dials you set)
+# ==========================================
+learning_rate = 0.1  # How big of a step the model takes down the error hill
+epochs = 50          # How many times the model loops through the data
 
-# Initialize and Train the Random Forest Model
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X_train_scaled, y_train)
+# ==========================================
+# 3. INITIALIZE PARAMETERS (w and b)
+# ==========================================
+# We start with a random guess for our line: y = wx + b
+w = np.random.randn(1, 1) # Weight (Slope)
+b = np.random.randn(1, 1) # Bias (Intercept)
 
-# Make predictions on the unseen test data
-predictions = model.predict(X_test_scaled)
+# List to keep track of the error over time so we can graph it later
+loss_history = []
 
-# Evaluate the model
-mae = mean_absolute_error(y_test, predictions)
-rmse = np.sqrt(mean_squared_error(y_test, predictions))
+print("Starting Training...")
 
-print(f"\n--- Model Evaluation ---")
-print(f"Mean Absolute Error (MAE): {mae:.2f}%")
-print(f"Root Mean Squared Error (RMSE): {rmse:.2f}%")
+# ==========================================
+# 4. GRADIENT DESCENT LOOP
+# ==========================================
+for epoch in range(epochs):
+    # Step A: Make a prediction with current w and b
+    y_pred = np.dot(X_scaled, w) + b
+    
+    # Step B: Calculate LOSS (Mean Squared Error)
+    # How wrong is the current line?
+    error = y_pred - y
+    mse = np.mean(error ** 2)
+    loss_history.append(mse)
+    
+    # Step C: Calculate Gradients
+    # The calculus part: figuring out which direction to adjust w and b to reduce error
+    dw = (2 / len(X_scaled)) * np.dot(X_scaled.T, error)
+    db = (2 / len(X_scaled)) * np.sum(error)
+    
+    # Step D: Update Parameters
+    # Move w and b in the opposite direction of the gradient
+    w = w - (learning_rate * dw)
+    b = b - (learning_rate * db)
+    
+    # Print progress every 10 epochs
+    if epoch % 10 == 0:
+        print(f"Epoch {epoch}: Loss (MSE) = {mse:.2f}")
 
-# Quick look at an actual vs predicted value
-comparison = pd.DataFrame({'Actual_SoH': y_test.values[:5], 'Predicted_SoH': predictions[:5]})
-print("\nPrediction Check:\n", comparison)
+print(f"Training Complete. Final Loss: {loss_history[-1]:.2f}")
+
+# ==========================================
+# 5. PLOTTING THE RESULTS
+# ==========================================
+# We create a figure with 2 subplots side-by-side
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+# --- Graph 1: The Gradient Descent Loss Curve ---
+ax1.plot(range(epochs), loss_history, color='red', marker='o')
+ax1.set_title('Loss (MSE) over Epochs')
+ax1.set_xlabel('Epochs (Iterations)')
+ax1.set_ylabel('Mean Squared Error')
+ax1.grid(True)
+
+# --- Graph 2: The Final Best Fit Line ---
+# We use the final trained 'w' and 'b' to draw our prediction line
+final_predictions = np.dot(X_scaled, w) + b
+
+ax2.scatter(X, y, color='blue', alpha=0.5, label='Actual Battery Data', s=10)
+ax2.plot(X, final_predictions, color='green', linewidth=3, label='Learned Best Fit Line')
+ax2.set_title('Linear Regression: Cycle Count vs State of Health')
+ax2.set_xlabel('Cycle Count')
+ax2.set_ylabel('State of Health (%)')
+ax2.legend()
+ax2.grid(True)
+
+plt.tight_layout()
+plt.show()
