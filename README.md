@@ -44,6 +44,8 @@ The goal is to proactively predict when a battery will reach its End-of-Life (Eo
 ## 📁 Repository Structure
 
 ```
+├── collect_battery.py # CLI status collector (generates & parses powercfg report on Windows)
+├── battery_history.csv # Aggregated CSV of battery status history entries over time
 ├── lap.py             # Core logic / entry point for the prediction modules
 ├── .gitignore         # Python-specific ignore configurations
 └── README.md          # Project overview and documentation
@@ -51,7 +53,7 @@ The goal is to proactively predict when a battery will reach its End-of-Life (Eo
 
 ## 📈 Future Roadmap
 
-- [ ] Integrate battery status collector CLI to extract battery report logs directly from OS (`powercfg /batteryreport` on Windows).
+- [x] Integrate battery status collector CLI to extract battery report logs directly from OS (`powercfg /batteryreport` on Windows).
 - [ ] Implement LSTM and Random Forest models for sequential capacity degradation prediction.
 - [ ] Build a lightweight Streamlit dashboard for real-time local battery health tracking.
 - [ ] Add model registry and experiment tracking.
